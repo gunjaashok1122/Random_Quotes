@@ -1,0 +1,10 @@
+{
+  "apps": [
+    {
+      "name": "Random Quotes For You",
+      "path": "expo",
+      "framework": "react-native"
+    }
+  ],
+  "$schema": "https://rork.com/schema/rork.json"
+}
