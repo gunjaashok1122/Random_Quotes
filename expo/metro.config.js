@@ -1,6 +1,12 @@
 const { getDefaultConfig } = require("expo/metro-config");
-const { withRorkMetro } = require("@rork-ai/toolkit-sdk/metro");
 
-const config = getDefaultConfig(__dirname);
+let config = getDefaultConfig(__dirname);
 
-module.exports = withRorkMetro(config);
+try {
+  const { withRorkMetro } = require("@rork-ai/toolkit-sdk/metro");
+  config = withRorkMetro(config);
+} catch (e) {
+  // Rork SDK metro wrapper failed or not present, fallback to default
+}
+
+module.exports = config;

@@ -1,4 +1,5 @@
 import { useTheme } from "@/contexts/ThemeContext";
+import { useResponsive } from "@/hooks/useResponsive";
 import {
   AppWindow,
   ChevronRight,
@@ -68,6 +69,7 @@ function SettingRow({
 
 export default function SettingsScreen() {
   const { colors } = useTheme();
+  const { isMobile } = useResponsive();
 
   const handleRateApp = () => {
     // Open app store - in production, use the actual app store link
@@ -85,7 +87,17 @@ export default function SettingsScreen() {
     >
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          !isMobile && {
+            flexDirection: "row",
+            maxWidth: 900,
+            width: "100%",
+            alignSelf: "center",
+            gap: 32,
+            paddingTop: 90,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── App Info Card ─────────────────────────────── */}
@@ -97,6 +109,7 @@ export default function SettingsScreen() {
               borderColor: colors.border,
               shadowColor: colors.shadow,
             },
+            !isMobile && { width: 320 },
           ]}
         >
           <View
@@ -116,37 +129,39 @@ export default function SettingsScreen() {
         </View>
 
         {/* ── Settings Rows ─────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.secondaryText }]}>
-            About
-          </Text>
-          <View
-            style={[
-              styles.sectionContainer,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <SettingRow
-              icon={<Info size={18} color={colors.accent} strokeWidth={2} />}
-              label="About the App"
-              onPress={() => {}}
-            />
-            <SettingRow
-              icon={<Star size={18} color={colors.accent} strokeWidth={2} />}
-              label="Rate the App"
-              onPress={handleRateApp}
-              isLast
-            />
+        <View style={[{ gap: 24 }, !isMobile && { flex: 1 }]}>
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.secondaryText }]}>
+              About
+            </Text>
+            <View
+              style={[
+                styles.sectionContainer,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <SettingRow
+                icon={<Info size={18} color={colors.accent} strokeWidth={2} />}
+                label="About the App"
+                onPress={() => {}}
+              />
+              <SettingRow
+                icon={<Star size={18} color={colors.accent} strokeWidth={2} />}
+                label="Rate the App"
+                onPress={handleRateApp}
+                isLast
+              />
+            </View>
           </View>
-        </View>
 
-        <Text style={[styles.footer, { color: colors.secondaryText }]}>
-          Built with love for inspiration seekers.
-          {"\n"}120+ hand-picked quotes to brighten your day.
-        </Text>
+          <Text style={[styles.footer, { color: colors.secondaryText }]}>
+            Built with love for inspiration seekers.
+            {"\n"}120+ hand-picked quotes to brighten your day.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

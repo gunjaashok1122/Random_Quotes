@@ -1,5 +1,6 @@
 import { getAuthorInfo, useQuotes } from "@/contexts/QuoteContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useResponsive } from "@/hooks/useResponsive";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { Copy, Heart, QuoteIcon, Share2, Trash2 } from "lucide-react-native";
@@ -58,6 +59,9 @@ const emptyStyles = StyleSheet.create({
 export default function FavoritesScreen() {
   const { colors } = useTheme();
   const { favorites, toggleFavorite } = useQuotes();
+  const { isMobile, isTablet } = useResponsive();
+
+  const numColumns = isMobile ? 1 : isTablet ? 2 : 3;
 
   const handleCopy = useCallback(async (quote: Quote) => {
     await Clipboard.setStringAsync(`"${quote.text}" — ${quote.author}`);
@@ -88,6 +92,8 @@ export default function FavoritesScreen() {
   const renderItem = useCallback(
     ({ item }: { item: Quote }) => {
       const authorInfo = getAuthorInfo(item.author);
+      const cardWidthPercent = isMobile ? "100%" : `${100 / numColumns}%`;
+
       return (
         <View
           style={[
@@ -95,6 +101,11 @@ export default function FavoritesScreen() {
             {
               backgroundColor: colors.card,
               borderColor: colors.border,
+            },
+            !isMobile && {
+              flex: 1,
+              maxWidth: `calc(${cardWidthPercent} - 16px)`,
+              margin: 8,
             },
           ]}
         >
@@ -168,7 +179,7 @@ export default function FavoritesScreen() {
         </View>
       );
     },
-    [colors, handleCopy, handleShare, handleRemove],
+    [colors, handleCopy, handleShare, handleRemove, isMobile, numColumns],
   );
 
   if (favorites.length === 0) {
@@ -176,18 +187,32 @@ export default function FavoritesScreen() {
       <SafeAreaView
         style={[styles.safe, { backgroundColor: colors.background }]}
       >
-        <EmptyFavorites colors={colors} />
+        <View style={[{ flex: 1 }, !isMobile && { paddingTop: 90 }]}>
+          <EmptyFavorites colors={colors} />
+        </View>
       </SafeAreaView>
     );
   }
 
+  const listContainerStyle = [
+    styles.list,
+    !isMobile && {
+      maxWidth: 1200,
+      width: "100%",
+      alignSelf: "center" as const,
+      paddingTop: 90,
+    },
+  ];
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <FlatList
+        key={`favorites-list-${numColumns}`}
         data={favorites}
+        numColumns={numColumns}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={listContainerStyle}
         showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
