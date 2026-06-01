@@ -15,16 +15,19 @@ import {
   View,
   Modal,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Svg, { Path } from "react-native-svg";
 
-// Firebase Auth Imports
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
+  getAdditionalUserInfo,
 } from "firebase/auth";
 import { auth, googleProvider, isFirebaseConfigured } from "../utils/firebase";
 
@@ -70,6 +73,43 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   // Google Modal State (Fallback Mode)
   const [showGoogleChooser, setShowGoogleChooser] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Name Prompt State (for Google Sign Up)
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [promptName, setPromptName] = useState("");
+  const googleUserRef = useRef<any>(null);
+
+  // Capture Google Sign-in redirect result on mount
+  React.useEffect(() => {
+    if (isFirebaseConfigured && Platform.OS === "web") {
+      getRedirectResult(auth)
+        .then(async (result) => {
+          if (result) {
+            const additionalInfo = getAdditionalUserInfo(result);
+            const isNewUser = additionalInfo?.isNewUser;
+
+            if (isNewUser || !result.user.displayName) {
+              googleUserRef.current = result.user;
+              setPromptName(result.user.displayName || result.user.email?.split("@")[0] || "");
+              setShowNamePrompt(true);
+            } else {
+              const name = result.user.displayName;
+              await AsyncStorage.setItem("auth-username", name);
+              await AsyncStorage.setItem("auth-email", result.user.email || "");
+              onAuthSuccess(name);
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("Google Redirect Result Error:", err);
+          if (err.code === "auth/unauthorized-domain") {
+            setShowGoogleChooser(true);
+          } else {
+            setError("Google sign-in failed: " + err.message);
+          }
+        });
+    }
+  }, []);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -139,7 +179,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           onAuthSuccess(finalUsername);
         }
       } else {
-        // Mock fallback when Firebase environment keys are missing
+        // Mock fallback
         await new Promise((resolve) => setTimeout(resolve, 800));
         const finalUsername = isSignUp ? username : email.split("@")[0];
         await AsyncStorage.setItem("auth-username", finalUsername);
@@ -170,28 +210,59 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
   const handleGoogleClick = () => {
     if (isFirebaseConfigured && Platform.OS === "web") {
-      // Real Firebase Google sign in popup on Web
       setLoading(true);
       setError("");
-      signInWithPopup(auth, googleProvider)
-        .then(async (result) => {
-          const name =
-            result.user.displayName ||
-            result.user.email?.split("@")[0] ||
-            "Google User";
-          await AsyncStorage.setItem("auth-username", name);
-          await AsyncStorage.setItem("auth-email", result.user.email || "");
-          onAuthSuccess(name);
-        })
-        .catch((err) => {
-          console.error("Google Sign-In Error:", err);
-          setError("Google Sign-In failed or was cancelled.");
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+      
+      const isMobileWeb = /Mobi|Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent);
+      
+      if (isMobileWeb) {
+        signInWithRedirect(auth, googleProvider)
+          .catch((err) => {
+            console.error("Google Redirect Error:", err);
+            if (err.code === "auth/unauthorized-domain") {
+              setError("");
+              setShowGoogleChooser(true);
+            } else {
+              setError("Google Sign-In redirect failed to start.");
+            }
+            setLoading(false);
+          });
+      } else {
+        signInWithPopup(auth, googleProvider)
+          .then(async (result) => {
+            const additionalInfo = getAdditionalUserInfo(result);
+            const isNewUser = additionalInfo?.isNewUser;
+
+            if (isNewUser || !result.user.displayName) {
+              googleUserRef.current = result.user;
+              setPromptName(result.user.displayName || result.user.email?.split("@")[0] || "");
+              setShowNamePrompt(true);
+            } else {
+              const name = result.user.displayName;
+              await AsyncStorage.setItem("auth-username", name);
+              await AsyncStorage.setItem("auth-email", result.user.email || "");
+              onAuthSuccess(name);
+            }
+          })
+          .catch((err) => {
+            console.error("Google Sign-In Error:", err);
+            if (err.code === "auth/unauthorized-domain") {
+              setError("");
+              window.alert(
+                "Domain Authorization Warning:\n\nThis Netlify domain is not added to 'Authorized Domains' in your Firebase Auth Console yet. We will load the Google Chooser fallback so you can continue testing."
+              );
+              setShowGoogleChooser(true);
+            } else if (err.code === "auth/popup-blocked") {
+              setError("Sign-In popup blocked by your browser. Please allow popups.");
+            } else {
+              setError("Google Sign-In failed or was cancelled.");
+            }
+          })
+          .finally(() => {
+            setLoading(false);
+          });
+      }
     } else {
-      // Fallback accounts chooser modal
       setShowGoogleChooser(true);
     }
   };
@@ -200,13 +271,20 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setGoogleLoading(true);
     setError("");
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-
-      await AsyncStorage.setItem("auth-username", name);
-      await AsyncStorage.setItem("auth-email", userEmail);
-
-      setShowGoogleChooser(false);
-      onAuthSuccess(name);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      
+      // For mock chooser: if signing up / choosing "Use another account", ask for name
+      if (name === "Google User") {
+        googleUserRef.current = { email: userEmail };
+        setPromptName("");
+        setShowGoogleChooser(false);
+        setShowNamePrompt(true);
+      } else {
+        await AsyncStorage.setItem("auth-username", name);
+        await AsyncStorage.setItem("auth-email", userEmail);
+        setShowGoogleChooser(false);
+        onAuthSuccess(name);
+      }
     } catch (err) {
       setError("Google Sign-In failed. Please try again.");
     } finally {
@@ -214,9 +292,42 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     }
   };
 
+  const handleSavePromptName = async () => {
+    const trimmedName = promptName.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const user = googleUserRef.current;
+      if (user && typeof user.updateProfile === "function") {
+        // If it's a real Firebase user object
+        await updateProfile(user, {
+          displayName: trimmedName,
+        });
+      }
+      await AsyncStorage.setItem("auth-username", trimmedName);
+      if (user?.email) {
+        await AsyncStorage.setItem("auth-email", user.email);
+      }
+
+      setShowNamePrompt(false);
+      onAuthSuccess(trimmedName);
+    } catch (err) {
+      console.error("Error saving display name:", err);
+      // Fallback
+      await AsyncStorage.setItem("auth-username", trimmedName);
+      setShowNamePrompt(false);
+      onAuthSuccess(trimmedName);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.container}
     >
       <LinearGradient
@@ -229,17 +340,23 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           contentContainerStyle={[
             styles.scrollContent,
             !isMobile && styles.webScrollContent,
+            isMobile && { justifyContent: "flex-start", paddingVertical: 40 },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={[styles.card, !isMobile && styles.webCard, { borderColor: "rgba(212, 160, 84, 0.15)" }]}>
+          <View style={[
+            styles.card,
+            !isMobile && styles.webCard,
+            isMobile && styles.mobileCard,
+            { borderColor: "rgba(212, 160, 84, 0.15)" }
+          ]}>
             {/* Logo Section */}
-            <View style={styles.logoSection}>
-              <View style={styles.quoteIconBox}>
-                <Quote size={32} color="#D4A054" fill="#D4A054" strokeWidth={1} />
+            <View style={[styles.logoSection, isMobile && styles.mobileLogoSection]}>
+              <View style={[styles.quoteIconBox, isMobile && styles.mobileQuoteIconBox]}>
+                <Quote size={isMobile ? 24 : 32} color="#D4A054" fill="#D4A054" strokeWidth={1} />
               </View>
-              <Text style={styles.logoTitle}>Inspiring Words</Text>
+              <Text style={[styles.logoTitle, isMobile && styles.mobileLogoTitle]}>Inspiring Words</Text>
               <Text style={styles.logoSubtitle}>From the successful people</Text>
             </View>
 
@@ -260,7 +377,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               </Text>
 
               {isSignUp && (
-                <View style={styles.inputContainer}>
+                <View style={[styles.inputContainer, isMobile && styles.mobileInputContainer]}>
                   <View style={styles.inputIcon}>
                     <User size={18} color="#A89880" />
                   </View>
@@ -275,7 +392,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                 </View>
               )}
 
-              <View style={styles.inputContainer}>
+              <View style={[styles.inputContainer, isMobile && styles.mobileInputContainer]}>
                 <View style={styles.inputIcon}>
                   <Mail size={18} color="#A89880" />
                 </View>
@@ -290,7 +407,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                 />
               </View>
 
-              <View style={styles.inputContainer}>
+              <View style={[styles.inputContainer, isMobile && styles.mobileInputContainer]}>
                 <View style={styles.inputIcon}>
                   <Lock size={18} color="#A89880" />
                 </View>
@@ -321,6 +438,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               <Pressable
                 style={({ pressed }) => [
                   styles.submitBtn,
+                  isMobile && styles.mobileSubmitBtn,
                   { opacity: pressed || loading ? 0.9 : 1 },
                 ]}
                 onPress={handleAuth}
@@ -343,7 +461,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               </Pressable>
 
               <Pressable style={styles.toggleBtn} onPress={toggleAuthMode}>
-                <Text style={styles.toggleText}>
+                <Text style={toggleTextStyles(colors)}>
                   {isSignUp
                     ? "Already have an account? Sign In"
                     : "Don't have an account? Sign Up"}
@@ -360,6 +478,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               <Pressable
                 style={({ pressed }) => [
                   styles.googleBtn,
+                  isMobile && styles.mobileGoogleBtn,
                   { opacity: pressed ? 0.95 : 1 },
                 ]}
                 onPress={handleGoogleClick}
@@ -471,9 +590,61 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           </View>
         </View>
       </Modal>
+
+      {/* Username Prompt Modal after Google Sign-up */}
+      <Modal
+        visible={showNamePrompt}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, !isMobile && styles.webModalContent]}>
+            <Text style={styles.modalTitle}>Set Your Name</Text>
+            <Text style={styles.modalSubtitle}>Please enter the name you would like to display in your profile.</Text>
+
+            <View style={[styles.inputContainer, { backgroundColor: "#F1F3F4", borderColor: "#DADCE0", marginTop: 16 }]}>
+              <View style={styles.inputIcon}>
+                <User size={18} color="#5F6368" />
+              </View>
+              <TextInput
+                style={[styles.input, { color: "#202124" }]}
+                placeholder="Display Name"
+                placeholderTextColor="#5F6368"
+                value={promptName}
+                onChangeText={setPromptName}
+                autoFocus
+              />
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.submitBtn,
+                { marginTop: 24, borderRadius: 8, overflow: "hidden", opacity: pressed ? 0.9 : 1 },
+              ]}
+              onPress={handleSavePromptName}
+            >
+              <LinearGradient
+                colors={["#E8B76E", "#C8873A"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.btnGradient}
+              >
+                <Text style={styles.submitBtnText}>Save & Continue</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
+
+// Inline dynamic helper to fix styling issue
+const toggleTextStyles = (colors: any) => ({
+  color: "#A89880",
+  fontSize: 13,
+  fontWeight: "500" as const,
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -623,11 +794,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 8,
   },
-  toggleText: {
-    color: "#A89880",
-    fontSize: 13,
-    fontWeight: "500",
-  },
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -771,5 +937,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#5F6368",
     fontWeight: "500",
+  },
+  mobileCard: {
+    padding: 20,
+    borderRadius: 20,
+  },
+  mobileLogoSection: {
+    marginBottom: 16,
+  },
+  mobileQuoteIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginBottom: 8,
+  },
+  mobileLogoTitle: {
+    fontSize: 20,
+  },
+  mobileInputContainer: {
+    height: 48,
+  },
+  mobileSubmitBtn: {
+    height: 48,
+  },
+  mobileGoogleBtn: {
+    height: 46,
   },
 });

@@ -8,7 +8,7 @@ import {
   LogOut,
   Star,
 } from "lucide-react-native";
-import React from "react";
+import React, { useState } from "react";
 import {
   Linking,
   Platform,
@@ -16,6 +16,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -73,7 +74,16 @@ function SettingRow({
 export default function SettingsScreen() {
   const { colors } = useTheme();
   const { isMobile } = useResponsive();
-  const { username, logout } = useQuotes();
+  const { username, logout, updateUsername } = useQuotes();
+
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newName, setNewName] = useState(username || "");
+
+  React.useEffect(() => {
+    if (username) {
+      setNewName(username);
+    }
+  }, [username]);
 
   const handleRateApp = () => {
     // Open app store - in production, use the actual app store link
@@ -123,15 +133,82 @@ export default function SettingsScreen() {
             <Text style={[styles.welcomeText, { color: colors.primaryText }]}>
               Welcome,
             </Text>
-            <Text style={[styles.usernameText, { color: colors.accent }]} numberOfLines={1}>
-              {username || "Guest"}
-            </Text>
+            
+            {isEditingName ? (
+              <View style={styles.editNameContainer}>
+                <TextInput
+                  style={[
+                    styles.editNameInput,
+                    {
+                      color: colors.primaryText,
+                      borderColor: colors.border,
+                      backgroundColor: colors.background,
+                    },
+                  ]}
+                  value={newName}
+                  onChangeText={setNewName}
+                  placeholder="Enter your name"
+                  placeholderTextColor={colors.secondaryText}
+                  autoFocus
+                />
+                <View style={styles.editNameButtons}>
+                  <Pressable
+                    onPress={async () => {
+                      if (newName.trim()) {
+                        await updateUsername(newName.trim());
+                        setIsEditingName(false);
+                      }
+                    }}
+                    style={({ pressed }) => [
+                      styles.editButton,
+                      { backgroundColor: colors.accent, opacity: pressed ? 0.9 : 1 }
+                    ]}
+                  >
+                    <Text style={styles.editButtonText}>Save</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setNewName(username || "");
+                      setIsEditingName(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.editButton,
+                      {
+                        backgroundColor: "transparent",
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        opacity: pressed ? 0.9 : 1
+                      }
+                    ]}
+                  >
+                    <Text style={[styles.editButtonText, { color: colors.primaryText }]}>Cancel</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Text style={[styles.usernameText, { color: colors.accent }]} numberOfLines={1}>
+                  {username || "Guest"}
+                </Text>
+                {username && (
+                  <Pressable
+                    onPress={() => {
+                      setNewName(username);
+                      setIsEditingName(true);
+                    }}
+                    style={styles.editLink}
+                  >
+                    <Text style={[styles.editLinkText, { color: colors.secondaryText }]}>Edit Name</Text>
+                  </Pressable>
+                )}
+              </>
+            )}
             
             <Pressable
               onPress={logout}
               style={({ pressed }) => [
                 styles.logoutBtn,
-                { borderColor: colors.danger, opacity: pressed ? 0.8 : 1 }
+                { borderColor: colors.danger, opacity: pressed ? 0.8 : 1, marginTop: isEditingName ? 16 : 4 }
               ]}
             >
               <LogOut size={16} color={colors.danger} />
@@ -355,5 +432,41 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     paddingTop: 8,
+  },
+  editNameContainer: {
+    width: "100%",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+  },
+  editNameInput: {
+    width: "100%",
+    height: 40,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    textAlign: "center",
+  },
+  editNameButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  editButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+  editButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  editLink: {
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+  },
+  editLinkText: {
+    fontSize: 12,
+    textDecorationLine: "underline",
   },
 });

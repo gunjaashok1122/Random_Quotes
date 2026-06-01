@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { updateProfile } from "firebase/auth";
+import { auth } from "../utils/firebase";
 
 import type { AuthorInfo, Quote, QuoteCategory } from "@/constants/quotes";
 import { ALL_CATEGORIES, authorRegistry, quotes } from "@/constants/quotes";
@@ -248,6 +250,20 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
     await AsyncStorage.removeItem("auth-email");
   }, []);
 
+  const updateUsername = useCallback(async (newName: string) => {
+    setUsername(newName);
+    await AsyncStorage.setItem("auth-username", newName);
+    if (auth.currentUser) {
+      try {
+        await updateProfile(auth.currentUser, {
+          displayName: newName,
+        });
+      } catch (err) {
+        console.error("Error updating profile in Firebase:", err);
+      }
+    }
+  }, []);
+
   return {
     currentQuote,
     dailyQuote,
@@ -263,5 +279,6 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
     username,
     login,
     logout,
+    updateUsername,
   };
 });
