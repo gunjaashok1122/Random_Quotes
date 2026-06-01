@@ -45,7 +45,7 @@ const FILTER_LABELS: Record<QuoteCategory, string> = {
 
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
-  const { isMobile, isTablet, width } = useResponsive();
+  const { isMobile, isTablet, isDesktop, width } = useResponsive();
   const {
     currentQuote,
     dailyQuote,
@@ -154,7 +154,7 @@ export default function HomeScreen() {
   }, [currentQuote.id, fadeAnim, scaleAnim]);
 
   // ── Render Web/Desktop Split Screen ──────────────────────
-  if (!isMobile) {
+  if (isDesktop) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <LinearGradient
@@ -474,7 +474,10 @@ export default function HomeScreen() {
     );
   }
 
-  // ── Render Mobile Native Layout ──────────────────────────
+  // ── Render Mobile & Tablet Layout (Stacked) ──────────────
+  const cardWidth = isTablet ? Math.min(width - 96, 680) : width - 48;
+  const dailyCardWidth = isTablet ? Math.min(width - 120, 600) : width - 72;
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <LinearGradient
@@ -485,17 +488,19 @@ export default function HomeScreen() {
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.gradient}
+        style={[styles.gradient, isTablet && { paddingTop: 90 }]}
       >
         {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.brandRow}>
-            <QuoteIcon size={22} color={colors.accent} strokeWidth={2.2} />
-            <Text style={[styles.brandText, { color: colors.primaryText }]}>
-              Random Quotes
-            </Text>
+        {!isTablet && (
+          <View style={styles.header}>
+            <View style={styles.brandRow}>
+              <QuoteIcon size={22} color={colors.accent} strokeWidth={2.2} />
+              <Text style={[styles.brandText, { color: colors.primaryText }]}>
+                Random Quotes
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Filter Chips */}
         <View style={styles.filterWrap}>
@@ -586,12 +591,16 @@ export default function HomeScreen() {
                   {
                     backgroundColor: colors.dailyCardBg,
                     borderColor: colors.border,
-                    width: mobileDailyCardWidth,
+                    width: dailyCardWidth,
                   },
                 ]}
               >
                 <Text
-                  style={[styles.dailyQuoteText, { color: colors.primaryText }]}
+                  style={[
+                    styles.dailyQuoteText,
+                    { color: colors.primaryText },
+                    isTablet && { fontSize: 16, lineHeight: 24 },
+                  ]}
                 >
                   "{dailyQuote.text}"
                 </Text>
@@ -611,7 +620,7 @@ export default function HomeScreen() {
                   backgroundColor: colors.card,
                   borderColor: colors.border,
                   shadowColor: isDark ? "#000" : "#3D2C1E",
-                  width: mobileCardWidth,
+                  width: cardWidth,
                 },
                 { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
               ]}
@@ -619,7 +628,13 @@ export default function HomeScreen() {
               <Text style={[styles.bigQuoteMark, { color: colors.accentLight }]}>
                 "
               </Text>
-              <Text style={[styles.quoteText, { color: colors.primaryText }]}>
+              <Text
+                style={[
+                  styles.quoteText,
+                  { color: colors.primaryText },
+                  isTablet && { fontSize: 22, lineHeight: 32 },
+                ]}
+              >
                 {currentQuote.text}
               </Text>
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -770,6 +785,7 @@ export default function HomeScreen() {
                 opacity: isRefreshing ? 0.7 : 1,
                 transform: [{ scale: pressed ? 0.95 : 1 }],
               },
+              isTablet && { width: 320, alignSelf: "center" },
             ]}
           >
             <RefreshCw size={20} color="#FFFFFF" strokeWidth={2.5} />

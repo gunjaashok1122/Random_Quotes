@@ -25,7 +25,9 @@ const darkSurface = "#2C2722" as const;
 const dangerRed = "#E05555" as const;
 const successGreen = "#5C9A6F" as const;
 
-export type ThemeColors = typeof light;
+export type ThemeColors = {
+  [K in keyof typeof light]: string;
+};
 
 export const light = {
   background: warmCream,

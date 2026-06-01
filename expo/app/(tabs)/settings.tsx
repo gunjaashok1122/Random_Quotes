@@ -73,7 +73,7 @@ function SettingRow({
 
 export default function SettingsScreen() {
   const { colors } = useTheme();
-  const { isMobile } = useResponsive();
+  const { isMobile, isTablet, isDesktop } = useResponsive();
   const { username, logout, updateUsername } = useQuotes();
 
   const [isEditingName, setIsEditingName] = useState(false);
@@ -103,7 +103,7 @@ export default function SettingsScreen() {
         style={styles.scroll}
         contentContainerStyle={[
           styles.scrollContent,
-          !isMobile && {
+          isDesktop && {
             flexDirection: "row",
             maxWidth: 900,
             width: "100%",
@@ -111,11 +111,19 @@ export default function SettingsScreen() {
             gap: 32,
             paddingTop: 90,
           },
+          isTablet && {
+            flexDirection: "column",
+            maxWidth: 600,
+            width: "100%",
+            alignSelf: "center",
+            paddingTop: 90,
+            gap: 24,
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Left Column: Profile Card & App Info Card ─────────────────────────────── */}
-        <View style={[{ gap: 20 }, !isMobile && { width: 320 }]}>
+        <View style={[{ gap: 20 }, isDesktop && { width: 320 }]}>
           {/* User Profile Card */}
           <View
             style={[
@@ -245,7 +253,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* ── Right Column: Settings Rows ─────────────────────────────── */}
-        <View style={[{ gap: 24 }, !isMobile && { flex: 1 }]}>
+        <View style={[{ gap: 24 }, isDesktop && { flex: 1 }]}>
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.secondaryText }]}>
               About

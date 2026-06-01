@@ -13,6 +13,8 @@ import {
   StyleSheet,
   Text,
   View,
+  StyleProp,
+  ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -59,7 +61,8 @@ const emptyStyles = StyleSheet.create({
 export default function FavoritesScreen() {
   const { colors } = useTheme();
   const { favorites, toggleFavorite } = useQuotes();
-  const { isMobile, isTablet } = useResponsive();
+  const { isMobile, isTablet, width } = useResponsive();
+  const containerWidth = isMobile ? width : Math.min(width, 1200);
 
   const numColumns = isMobile ? 1 : isTablet ? 2 : 3;
 
@@ -104,7 +107,7 @@ export default function FavoritesScreen() {
             },
             !isMobile && {
               flex: 1,
-              maxWidth: `calc(${cardWidthPercent} - 16px)`,
+              maxWidth: (containerWidth - 32) / numColumns - 16,
               margin: 8,
             },
           ]}
@@ -179,7 +182,7 @@ export default function FavoritesScreen() {
         </View>
       );
     },
-    [colors, handleCopy, handleShare, handleRemove, isMobile, numColumns],
+    [colors, handleCopy, handleShare, handleRemove, isMobile, numColumns, containerWidth],
   );
 
   if (favorites.length === 0) {
@@ -194,12 +197,12 @@ export default function FavoritesScreen() {
     );
   }
 
-  const listContainerStyle = [
+  const listContainerStyle: StyleProp<ViewStyle> = [
     styles.list,
     !isMobile && {
       maxWidth: 1200,
       width: "100%",
-      alignSelf: "center" as const,
+      alignSelf: "center",
       paddingTop: 90,
     },
   ];
