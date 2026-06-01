@@ -249,67 +249,65 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       setLoading(true);
       setError("");
       
-      const isMobileWeb = /Mobi|Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent);
-      
-      if (isMobileWeb) {
-        signInWithRedirect(auth, googleProvider)
-          .catch((err) => {
-            console.error("Google Redirect Error:", err);
-            if (err.code === "auth/unauthorized-domain") {
-              setError("");
-              setShowGoogleChooser(true);
-            } else {
-              setError("Google Sign-In redirect failed to start.");
-            }
-            setLoading(false);
-          });
-      } else {
-        signInWithPopup(auth, googleProvider)
-          .then(async (result) => {
-            const additionalInfo = getAdditionalUserInfo(result);
-            const isNewUser = additionalInfo?.isNewUser;
+      // Try signInWithPopup first. If it is blocked or fails on mobile, fall back to redirect.
+      signInWithPopup(auth, googleProvider)
+        .then(async (result) => {
+          const additionalInfo = getAdditionalUserInfo(result);
+          const isNewUser = additionalInfo?.isNewUser;
 
-            if (isNewUser || !result.user.displayName) {
-              googleUserRef.current = result.user;
-              setPromptName(result.user.displayName || result.user.email?.split("@")[0] || "");
-              setShowNamePrompt(true);
-            } else {
-              const name = result.user.displayName;
-              
-              // Save user to Firestore Database (non-blocking)
-              setDoc(doc(db, "users", result.user.uid), {
-                uid: result.user.uid,
-                email: result.user.email || "",
-                displayName: name,
-                provider: "google",
-                lastLoginAt: new Date().toISOString()
-              }, { merge: true }).catch((dbErr) => {
-                console.error("Firestore Google popup login error:", dbErr);
+          if (isNewUser || !result.user.displayName) {
+            googleUserRef.current = result.user;
+            setPromptName(result.user.displayName || result.user.email?.split("@")[0] || "");
+            setShowNamePrompt(true);
+          } else {
+            const name = result.user.displayName;
+            
+            // Save user to Firestore Database (non-blocking)
+            setDoc(doc(db, "users", result.user.uid), {
+              uid: result.user.uid,
+              email: result.user.email || "",
+              displayName: name,
+              provider: "google",
+              lastLoginAt: new Date().toISOString()
+            }, { merge: true }).catch((dbErr) => {
+              console.error("Firestore Google popup login error:", dbErr);
+            });
+
+            await AsyncStorage.setItem("auth-username", name);
+            await AsyncStorage.setItem("auth-email", result.user.email || "");
+            onAuthSuccess(name);
+          }
+        })
+        .catch((err) => {
+          console.error("Google Popup Error:", err);
+          if (err.code === "auth/unauthorized-domain") {
+            setError("");
+            setShowGoogleChooser(true);
+            setLoading(false);
+          } else if (
+            err.code === "auth/popup-blocked" ||
+            err.code === "auth/cancelled-popup-request" ||
+            /Mobi|Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent)
+          ) {
+            // If popup was blocked or we are on mobile, fall back to redirect
+            console.log("Popup failed or on mobile browser. Falling back to redirect...");
+            signInWithRedirect(auth, googleProvider)
+              .catch((redirectErr) => {
+                console.error("Google Redirect Error:", redirectErr);
+                if (redirectErr.code === "auth/unauthorized-domain") {
+                  setShowGoogleChooser(true);
+                } else {
+                  setError("Google authentication failed. Using fallback chooser...");
+                  setShowGoogleChooser(true);
+                }
+                setLoading(false);
               });
-
-              await AsyncStorage.setItem("auth-username", name);
-              await AsyncStorage.setItem("auth-email", result.user.email || "");
-              onAuthSuccess(name);
-            }
-          })
-          .catch((err) => {
-            console.error("Google Sign-In Error:", err);
-            if (err.code === "auth/unauthorized-domain") {
-              setError("");
-              window.alert(
-                "Domain Authorization Warning:\n\nThis Netlify domain is not added to 'Authorized Domains' in your Firebase Auth Console yet. We will load the Google Chooser fallback so you can continue testing."
-              );
-              setShowGoogleChooser(true);
-            } else if (err.code === "auth/popup-blocked") {
-              setError("Sign-In popup blocked by your browser. Please allow popups.");
-            } else {
-              setError("Google Sign-In failed or was cancelled.");
-            }
-          })
-          .finally(() => {
+          } else {
+            setError("Google sign-in failed. Using fallback chooser...");
+            setShowGoogleChooser(true);
             setLoading(false);
-          });
-      }
+          }
+        });
     } else {
       setShowGoogleChooser(true);
     }
@@ -420,9 +418,11 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         <View style={styles.lightBeam} />
 
         <ScrollView
+          style={styles.scroll}
           contentContainerStyle={[
             styles.scrollContent,
             !isMobile && styles.webScrollContent,
+            isMobile && styles.mobileScrollContent,
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -733,9 +733,17 @@ const toggleTextStyles = (colors: any) => ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: Platform.OS === "web" ? "100vw" : "100%",
+    maxWidth: "100%",
+    minHeight: Platform.OS === "web" ? "100dvh" : "100%",
+    overflow: "hidden",
   },
   gradient: {
     flex: 1,
+    width: Platform.OS === "web" ? "100vw" : "100%",
+    maxWidth: "100%",
+    minHeight: Platform.OS === "web" ? "100dvh" : "100%",
+    overflow: "hidden",
   },
   lightBeam: {
     position: "absolute",
@@ -748,12 +756,21 @@ const styles = StyleSheet.create({
     transform: [{ scaleX: 1.5 }, { rotate: "-45deg" }],
     pointerEvents: "none",
   },
+  scroll: {
+    flex: 1,
+    width: "100%",
+  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
     width: "100%",
+    maxWidth: "100%",
+  },
+  mobileScrollContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 24,
   },
   webScrollContent: {
     alignItems: "center",
@@ -923,10 +940,10 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    width: "100%",
+    borderRadius: 12,
+    width: "90%",
     maxWidth: 380,
-    padding: 24,
+    padding: 20,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -1026,6 +1043,8 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   mobileCard: {
+    width: "90%",
+    maxWidth: 380,
     padding: 20,
     borderRadius: 20,
   },
