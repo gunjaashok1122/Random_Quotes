@@ -19,6 +19,15 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Svg, { Path } from "react-native-svg";
 
+// Firebase Auth Imports
+import {
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import { auth, googleProvider, isFirebaseConfigured } from "../utils/firebase";
+
 // Official Google G Logo SVG
 function GoogleIcon() {
   return (
@@ -58,7 +67,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Google Modal State
+  // Google Modal State (Fallback Mode)
   const [showGoogleChooser, setShowGoogleChooser] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -106,18 +115,84 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setError("");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      const finalUsername = isSignUp ? username : email.split("@")[0];
-      
-      await AsyncStorage.setItem("auth-username", finalUsername);
-      await AsyncStorage.setItem("auth-email", email);
-
-      onAuthSuccess(finalUsername);
-    } catch (err) {
-      setError("Authentication failed. Please try again.");
+      if (isFirebaseConfigured) {
+        if (isSignUp) {
+          // Real Firebase Sign Up
+          await createUserWithEmailAndPassword(auth, email, password);
+          if (auth.currentUser) {
+            await updateProfile(auth.currentUser, {
+              displayName: username,
+            });
+          }
+          await AsyncStorage.setItem("auth-username", username);
+          await AsyncStorage.setItem("auth-email", email);
+          onAuthSuccess(username);
+        } else {
+          // Real Firebase Sign In
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const finalUsername =
+            userCredential.user.displayName ||
+            userCredential.user.email?.split("@")[0] ||
+            "User";
+          await AsyncStorage.setItem("auth-username", finalUsername);
+          await AsyncStorage.setItem("auth-email", userCredential.user.email || email);
+          onAuthSuccess(finalUsername);
+        }
+      } else {
+        // Mock fallback when Firebase environment keys are missing
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        const finalUsername = isSignUp ? username : email.split("@")[0];
+        await AsyncStorage.setItem("auth-username", finalUsername);
+        await AsyncStorage.setItem("auth-email", email);
+        onAuthSuccess(finalUsername);
+      }
+    } catch (err: any) {
+      console.error("Auth error:", err);
+      if (err.code === "auth/email-already-in-use") {
+        setError("Email is already registered.");
+      } else if (
+        err.code === "auth/invalid-credential" ||
+        err.code === "auth/wrong-password" ||
+        err.code === "auth/user-not-found"
+      ) {
+        setError("Invalid email or password.");
+      } else if (err.code === "auth/weak-password") {
+        setError("Password should be at least 6 characters.");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Please enter a valid email address.");
+      } else {
+        setError(err.message || "Authentication failed. Please try again.");
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleClick = () => {
+    if (isFirebaseConfigured && Platform.OS === "web") {
+      // Real Firebase Google sign in popup on Web
+      setLoading(true);
+      setError("");
+      signInWithPopup(auth, googleProvider)
+        .then(async (result) => {
+          const name =
+            result.user.displayName ||
+            result.user.email?.split("@")[0] ||
+            "Google User";
+          await AsyncStorage.setItem("auth-username", name);
+          await AsyncStorage.setItem("auth-email", result.user.email || "");
+          onAuthSuccess(name);
+        })
+        .catch((err) => {
+          console.error("Google Sign-In Error:", err);
+          setError("Google Sign-In failed or was cancelled.");
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else {
+      // Fallback accounts chooser modal
+      setShowGoogleChooser(true);
     }
   };
 
@@ -125,7 +200,6 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setGoogleLoading(true);
     setError("");
     try {
-      // Simulate Google Sign-In network handshakes
       await new Promise((resolve) => setTimeout(resolve, 1200));
 
       await AsyncStorage.setItem("auth-username", name);
@@ -288,7 +362,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                   styles.googleBtn,
                   { opacity: pressed ? 0.95 : 1 },
                 ]}
-                onPress={() => setShowGoogleChooser(true)}
+                onPress={handleGoogleClick}
+                disabled={loading}
               >
                 <GoogleIcon />
                 <Text style={styles.googleText}>Continue with Google</Text>

@@ -6,7 +6,6 @@ import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import IntroScreen from "@/components/IntroScreen";
 import AuthScreen from "@/components/AuthScreen";
 import { QuoteProvider, useQuotes } from "@/contexts/QuoteContext";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
@@ -24,19 +23,6 @@ function StatusBarManager() {
 function RootLayoutNav() {
   const { colors } = useTheme();
   const { username, login, isLoaded } = useQuotes();
-  const [showIntro, setShowIntro] = useState(true);
-
-  // Auto-advance after 4 seconds
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowIntro(false);
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (showIntro) {
-    return <IntroScreen onFinished={() => setShowIntro(false)} />;
-  }
 
   // Prevent flash while loading AsyncStorage auth keys
   if (!isLoaded) {
