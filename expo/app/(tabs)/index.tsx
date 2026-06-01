@@ -813,8 +813,8 @@ const styles = StyleSheet.create({
 
   // ── Filters ──────────────────────────────────────────────
   filterWrap: {
-    marginTop: 12,
-    marginBottom: 4,
+    marginTop: 6,
+    marginBottom: 2,
   },
   filterScroll: {
     flexDirection: "row",
@@ -839,17 +839,17 @@ const styles = StyleSheet.create({
   // ── Daily Quote ──────────────────────────────────────────
   dailyContainer: {
     alignItems: "center",
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: 6,
+    marginBottom: 4,
   },
   dailyChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 20,
-    marginBottom: 10,
+    marginBottom: 6,
   },
   dailyLabel: {
     fontSize: 12,
@@ -861,7 +861,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 8,
     marginHorizontal: 12,
     alignItems: "center",
   },
@@ -883,14 +883,14 @@ const styles = StyleSheet.create({
   cardWrapper: {
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 16,
-    minHeight: 320,
+    paddingVertical: 10,
+    minHeight: 220,
   },
   card: {
     borderRadius: 24,
-    paddingHorizontal: 28,
-    paddingTop: 40,
-    paddingBottom: 28,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 16,
     borderWidth: 1,
     alignItems: "center",
     ...Platform.select({
@@ -904,16 +904,16 @@ const styles = StyleSheet.create({
     }),
   },
   bigQuoteMark: {
-    fontSize: 72,
-    lineHeight: 60,
+    fontSize: 40,
+    lineHeight: 32,
     fontWeight: "300",
     fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
     alignSelf: "flex-start",
-    marginBottom: -8,
+    marginBottom: -4,
   },
   quoteText: {
-    fontSize: 22,
-    lineHeight: 32,
+    fontSize: 18,
+    lineHeight: 26,
     fontWeight: "500",
     textAlign: "center",
     letterSpacing: -0.2,
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     width: 40,
-    marginVertical: 18,
+    marginVertical: 10,
     opacity: 0.5,
   },
 
@@ -990,12 +990,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: 16,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   actionBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -1018,9 +1018,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderRadius: 16,
-    marginBottom: Platform.OS === "ios" ? 12 : 24,
+    marginBottom: Platform.OS === "ios" ? 10 : 16,
     marginHorizontal: 20,
     ...Platform.select({
       ios: {
