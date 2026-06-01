@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { updateProfile } from "firebase/auth";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "../utils/firebase";
 
 import type { AuthorInfo, Quote, QuoteCategory } from "@/constants/quotes";
@@ -177,6 +177,57 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
     load();
   }, []);
 
+  // ── Auth listener and Firestore Sync ─────────────────────
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const userDocRef = doc(db, "users", firebaseUser.uid);
+          const userSnap = await getDoc(userDocRef);
+          
+          if (userSnap.exists()) {
+            const firestoreFavs: Quote[] = userSnap.data().favorites || [];
+            
+            // Read current local favorites directly from AsyncStorage to avoid closures/state dependencies!
+            const localFavJson = await AsyncStorage.getItem(FAVORITES_KEY);
+            const localFavs: Quote[] = localFavJson ? JSON.parse(localFavJson) : [];
+            
+            // Merge
+            const merged = [...firestoreFavs];
+            localFavs.forEach((localQ) => {
+              if (!merged.some((q) => q.id === localQ.id)) {
+                merged.push(localQ);
+              }
+            });
+            
+            setFavorites(merged);
+            await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(merged));
+            
+            if (merged.length > firestoreFavs.length) {
+              await setDoc(userDocRef, { favorites: merged }, { merge: true });
+            }
+          } else {
+            // Document doesn't exist, create it with local favorites
+            const localFavJson = await AsyncStorage.getItem(FAVORITES_KEY);
+            const localFavs: Quote[] = localFavJson ? JSON.parse(localFavJson) : [];
+            await setDoc(userDocRef, {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email || "",
+              displayName: firebaseUser.displayName || "Guest",
+              favorites: localFavs,
+              createdAt: new Date().toISOString()
+            });
+            setFavorites(localFavs);
+          }
+        } catch (err) {
+          console.error("Firestore favorites sync error on login:", err);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // ── Persist favorites ────────────────────────────────────
   useEffect(() => {
     if (!isLoaded) return;
@@ -226,8 +277,20 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
   const toggleFavorite = useCallback((quote: Quote) => {
     setFavorites((prev) => {
       const exists = prev.some((q) => q.id === quote.id);
-      if (exists) return prev.filter((q) => q.id !== quote.id);
-      return [...prev, quote];
+      const next = exists ? prev.filter((q) => q.id !== quote.id) : [...prev, quote];
+      
+      // Update AsyncStorage immediately
+      AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next)).catch(() => {});
+      
+      // Non-blocking sync to Firestore if user is logged in
+      if (auth.currentUser) {
+        const userDocRef = doc(db, "users", auth.currentUser.uid);
+        setDoc(userDocRef, { favorites: next }, { merge: true }).catch((err) => {
+          console.error("Error syncing favorite toggle to Firestore:", err);
+        });
+      }
+      
+      return next;
     });
   }, []);
 
@@ -237,7 +300,22 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
   );
 
   const removeFavorite = useCallback((quoteId: number) => {
-    setFavorites((prev) => prev.filter((q) => q.id !== quoteId));
+    setFavorites((prev) => {
+      const next = prev.filter((q) => q.id !== quoteId);
+      
+      // Update AsyncStorage immediately
+      AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next)).catch(() => {});
+      
+      // Non-blocking sync to Firestore if user is logged in
+      if (auth.currentUser) {
+        const userDocRef = doc(db, "users", auth.currentUser.uid);
+        setDoc(userDocRef, { favorites: next }, { merge: true }).catch((err) => {
+          console.error("Error syncing favorite removal to Firestore:", err);
+        });
+      }
+      
+      return next;
+    });
   }, []);
 
   const login = useCallback(async (name: string) => {
@@ -247,8 +325,11 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
 
   const logout = useCallback(async () => {
     setUsername(null);
+    setFavorites([]); // Clear state immediately
     await AsyncStorage.removeItem("auth-username");
     await AsyncStorage.removeItem("auth-email");
+    await AsyncStorage.removeItem(FAVORITES_KEY); // Clear local favorites storage
+    await auth.signOut(); // Trigger firebase sign out
   }, []);
 
   const updateUsername = useCallback(async (newName: string) => {
@@ -277,6 +358,7 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
 
   return {
     currentQuote,
+    setCurrentQuote,
     dailyQuote,
     favorites,
     isLoaded,

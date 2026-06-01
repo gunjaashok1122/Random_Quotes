@@ -73,9 +73,13 @@ export default function FavoritesScreen() {
 
   const handleShare = useCallback(async (quote: Quote) => {
     try {
+      const shareUrl = Platform.OS === "web"
+        ? `${window.location.origin}/?quoteId=${quote.id}`
+        : `https://random-quotes-for-you.netlify.app/?quoteId=${quote.id}`;
+
       await Share.share(
         {
-          message: `"${quote.text}"\n\n— ${quote.author}\n\nShared via Random Quotes For You`,
+          message: `"${quote.text}"\n\n— ${quote.author}\n\nRead more here: ${shareUrl}`,
         },
         { dialogTitle: "Share this quote" },
       );

@@ -1,6 +1,7 @@
 import { getAuthorInfo, useQuotes } from "@/contexts/QuoteContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useResponsive } from "@/hooks/useResponsive";
+import { useLocalSearchParams } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -28,7 +29,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { QuoteCategory } from "@/constants/quotes";
-import { ALL_CATEGORIES } from "@/constants/quotes";
+import { ALL_CATEGORIES, quotes } from "@/constants/quotes";
 
 /** Maps filter categories to compact chip labels. */
 const FILTER_LABELS: Record<QuoteCategory, string> = {
@@ -48,6 +49,7 @@ export default function HomeScreen() {
   const { isMobile, isTablet, isDesktop, width } = useResponsive();
   const {
     currentQuote,
+    setCurrentQuote,
     dailyQuote,
     activeFilter,
     nextQuote,
@@ -126,11 +128,29 @@ export default function HomeScreen() {
     setTimeout(() => setCopied(false), 2000);
   }, [currentQuote]);
 
+  const params = useLocalSearchParams<{ quoteId?: string }>();
+
+  // ── Deep Link handler for specific quote ──────────────────
+  useEffect(() => {
+    if (params.quoteId) {
+      const qId = parseInt(params.quoteId, 10);
+      const pool = activeFilter ? quotes.filter((q) => q.category === activeFilter) : quotes;
+      const matched = pool.find((q) => q.id === qId) || quotes.find((q) => q.id === qId);
+      if (matched) {
+        setCurrentQuote(matched);
+      }
+    }
+  }, [params.quoteId, activeFilter, setCurrentQuote]);
+
   // ── Share ─────────────────────────────────────────────────
   const handleShare = useCallback(async () => {
     try {
+      const shareUrl = Platform.OS === "web"
+        ? `${window.location.origin}/?quoteId=${currentQuote.id}`
+        : `https://random-quotes-for-you.netlify.app/?quoteId=${currentQuote.id}`;
+
       await Share.share({
-        message: `"${currentQuote.text}"\n\n— ${currentQuote.author}\n\nShared via Random Quotes For You`,
+        message: `"${currentQuote.text}"\n\n— ${currentQuote.author}\n\nRead more here: ${shareUrl}`,
       });
     } catch {
       // user cancelled
