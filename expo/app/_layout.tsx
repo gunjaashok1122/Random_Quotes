@@ -2,11 +2,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { QuoteProvider } from "@/contexts/QuoteContext";
+import IntroScreen from "@/components/IntroScreen";
+import AuthScreen from "@/components/AuthScreen";
+import { QuoteProvider, useQuotes } from "@/contexts/QuoteContext";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -21,6 +23,29 @@ function StatusBarManager() {
 
 function RootLayoutNav() {
   const { colors } = useTheme();
+  const { username, login, isLoaded } = useQuotes();
+  const [showIntro, setShowIntro] = useState(true);
+
+  // Auto-advance after 4 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowIntro(false);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showIntro) {
+    return <IntroScreen onFinished={() => setShowIntro(false)} />;
+  }
+
+  // Prevent flash while loading AsyncStorage auth keys
+  if (!isLoaded) {
+    return null;
+  }
+
+  if (!username) {
+    return <AuthScreen onAuthSuccess={login} />;
+  }
 
   return (
     <>

@@ -1,11 +1,14 @@
 import { useTheme } from "@/contexts/ThemeContext";
 import { useResponsive } from "@/hooks/useResponsive";
+import { useQuotes } from "@/contexts/QuoteContext";
 import {
   AppWindow,
   ChevronRight,
   Info,
+  LogOut,
   Star,
 } from "lucide-react-native";
+import React from "react";
 import {
   Linking,
   Platform,
@@ -70,6 +73,7 @@ function SettingRow({
 export default function SettingsScreen() {
   const { colors } = useTheme();
   const { isMobile } = useResponsive();
+  const { username, logout } = useQuotes();
 
   const handleRateApp = () => {
     // Open app store - in production, use the actual app store link
@@ -100,35 +104,70 @@ export default function SettingsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── App Info Card ─────────────────────────────── */}
-        <View
-          style={[
-            styles.appCard,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              shadowColor: colors.shadow,
-            },
-            !isMobile && { width: 320 },
-          ]}
-        >
+        {/* ── Left Column: Profile Card & App Info Card ─────────────────────────────── */}
+        <View style={[{ gap: 20 }, !isMobile && { width: 320 }]}>
+          {/* User Profile Card */}
           <View
             style={[
-              styles.appIconPlaceholder,
-              { backgroundColor: colors.accent },
+              styles.profileCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                shadowColor: colors.shadow,
+              },
             ]}
           >
-            <AppWindow size={28} color="#FFFFFF" strokeWidth={2} />
+            <View style={[styles.avatarBox, { backgroundColor: colors.accentLight }]}>
+              <Text style={styles.avatarEmoji}>👤</Text>
+            </View>
+            <Text style={[styles.welcomeText, { color: colors.primaryText }]}>
+              Welcome,
+            </Text>
+            <Text style={[styles.usernameText, { color: colors.accent }]} numberOfLines={1}>
+              {username || "Guest"}
+            </Text>
+            
+            <Pressable
+              onPress={logout}
+              style={({ pressed }) => [
+                styles.logoutBtn,
+                { borderColor: colors.danger, opacity: pressed ? 0.8 : 1 }
+              ]}
+            >
+              <LogOut size={16} color={colors.danger} />
+              <Text style={[styles.logoutText, { color: colors.danger }]}>Sign Out</Text>
+            </Pressable>
           </View>
-          <Text style={[styles.appName, { color: colors.primaryText }]}>
-            Random Quotes For You
-          </Text>
-          <Text style={[styles.appVersion, { color: colors.secondaryText }]}>
-            Version 1.0.0
-          </Text>
+
+          {/* App Info Card */}
+          <View
+            style={[
+              styles.appCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                shadowColor: colors.shadow,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.appIconPlaceholder,
+                { backgroundColor: colors.accent },
+              ]}
+            >
+              <AppWindow size={28} color="#FFFFFF" strokeWidth={2} />
+            </View>
+            <Text style={[styles.appName, { color: colors.primaryText }]}>
+              Random Quotes For You
+            </Text>
+            <Text style={[styles.appVersion, { color: colors.secondaryText }]}>
+              Version 1.0.0
+            </Text>
+          </View>
         </View>
 
-        {/* ── Settings Rows ─────────────────────────────── */}
+        {/* ── Right Column: Settings Rows ─────────────────────────────── */}
         <View style={[{ gap: 24 }, !isMobile && { flex: 1 }]}>
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.secondaryText }]}>
@@ -174,6 +213,60 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 48,
     gap: 24,
+  },
+  profileCard: {
+    alignItems: "center",
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 8,
+    ...Platform.select({
+      ios: {
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+      },
+      android: { elevation: 4 },
+      default: {},
+    }),
+  },
+  avatarBox: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  avatarEmoji: {
+    fontSize: 28,
+  },
+  welcomeText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  usernameText: {
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+    marginBottom: 8,
+  },
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginTop: 4,
+    width: "100%",
+  },
+  logoutText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   appCard: {
     alignItems: "center",

@@ -114,6 +114,7 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
   const [favorites, setFavorites] = useState<Quote[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeFilter, setActiveFilter] = useState<QuoteCategory | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
 
   const recentAuthorsRef = useRef<string[]>([]);
 
@@ -129,12 +130,13 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [favJson, dailyJson, dailyDate, savedFilter] =
+        const [favJson, dailyJson, dailyDate, savedFilter, savedUser] =
           await Promise.all([
             AsyncStorage.getItem(FAVORITES_KEY),
             AsyncStorage.getItem(DAILY_KEY),
             AsyncStorage.getItem(DAILY_DATE_KEY),
             AsyncStorage.getItem(FILTER_KEY),
+            AsyncStorage.getItem("auth-username"),
           ]);
 
         if (favJson) {
@@ -144,6 +146,10 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
 
         if (savedFilter) {
           setActiveFilter(savedFilter as QuoteCategory);
+        }
+
+        if (savedUser) {
+          setUsername(savedUser);
         }
 
         const today = new Date().toISOString().split("T")[0];
@@ -231,6 +237,17 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
     setFavorites((prev) => prev.filter((q) => q.id !== quoteId));
   }, []);
 
+  const login = useCallback(async (name: string) => {
+    setUsername(name);
+    await AsyncStorage.setItem("auth-username", name);
+  }, []);
+
+  const logout = useCallback(async () => {
+    setUsername(null);
+    await AsyncStorage.removeItem("auth-username");
+    await AsyncStorage.removeItem("auth-email");
+  }, []);
+
   return {
     currentQuote,
     dailyQuote,
@@ -243,5 +260,8 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
     isFavorite,
     removeFavorite,
     getAuthorInfo,
+    username,
+    login,
+    logout,
   };
 });
