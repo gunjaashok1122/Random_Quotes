@@ -7,8 +7,8 @@ const firebaseConfig = {
   projectId: "random-quotes-4f33e",
   storageBucket: "random-quotes-4f33e.firebasestorage.app",
   messagingSenderId: "278100417132",
-  appId: "1:278100417132:web:f7b24170df6ee729411649",
-  measurementId: "G-XCRYP78EXV"
+  appId: "1:278100417132:web:91b063f59cdd03e2411649",
+  measurementId: "G-EC2X8623DD"
 };
 
 // Config is hardcoded, so it is always configured

@@ -667,13 +667,16 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
+    alignItems: "center",
     padding: 24,
+    width: "100%",
   },
   webScrollContent: {
     alignItems: "center",
   },
   card: {
     width: "100%",
+    maxWidth: 420,
     backgroundColor: "rgba(37, 32, 28, 0.75)",
     borderRadius: 28,
     padding: 28,
@@ -698,7 +701,6 @@ const styles = StyleSheet.create({
     }),
   },
   webCard: {
-    maxWidth: 420,
     marginVertical: 40,
   },
   logoSection: {
@@ -839,6 +841,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 8,
     width: "100%",
+    maxWidth: 380,
     padding: 24,
     ...Platform.select({
       ios: {
@@ -853,7 +856,7 @@ const styles = StyleSheet.create({
     }),
   },
   webModalContent: {
-    maxWidth: 380,
+    // Handled by maxWidth on modalContent directly
   },
   modalHeader: {
     flexDirection: "row",
