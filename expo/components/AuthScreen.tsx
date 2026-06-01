@@ -29,7 +29,8 @@ import {
   updateProfile,
   getAdditionalUserInfo,
 } from "firebase/auth";
-import { auth, googleProvider, isFirebaseConfigured } from "../utils/firebase";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, googleProvider, isFirebaseConfigured, db } from "../utils/firebase";
 
 // Official Google G Logo SVG
 function GoogleIcon() {
@@ -94,6 +95,20 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               setShowNamePrompt(true);
             } else {
               const name = result.user.displayName;
+              
+              // Save user to Firestore Database
+              try {
+                await setDoc(doc(db, "users", result.user.uid), {
+                  uid: result.user.uid,
+                  email: result.user.email || "",
+                  displayName: name,
+                  provider: "google",
+                  lastLoginAt: new Date().toISOString()
+                }, { merge: true });
+              } catch (dbErr) {
+                console.error("Firestore Google redirect login error:", dbErr);
+              }
+
               await AsyncStorage.setItem("auth-username", name);
               await AsyncStorage.setItem("auth-email", result.user.email || "");
               onAuthSuccess(name);
@@ -158,11 +173,24 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       if (isFirebaseConfigured) {
         if (isSignUp) {
           // Real Firebase Sign Up
-          await createUserWithEmailAndPassword(auth, email, password);
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           if (auth.currentUser) {
             await updateProfile(auth.currentUser, {
               displayName: username,
             });
+            
+            // Save user to Firestore Database
+            try {
+              await setDoc(doc(db, "users", userCredential.user.uid), {
+                uid: userCredential.user.uid,
+                email: email,
+                displayName: username,
+                provider: "password",
+                createdAt: new Date().toISOString()
+              });
+            } catch (dbErr) {
+              console.error("Firestore user registration error:", dbErr);
+            }
           }
           await AsyncStorage.setItem("auth-username", username);
           await AsyncStorage.setItem("auth-email", email);
@@ -174,6 +202,20 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
             userCredential.user.displayName ||
             userCredential.user.email?.split("@")[0] ||
             "User";
+            
+          // Save/update user to Firestore Database
+          try {
+            await setDoc(doc(db, "users", userCredential.user.uid), {
+              uid: userCredential.user.uid,
+              email: userCredential.user.email || email,
+              displayName: finalUsername,
+              provider: "password",
+              lastLoginAt: new Date().toISOString()
+            }, { merge: true });
+          } catch (dbErr) {
+            console.error("Firestore user login update error:", dbErr);
+          }
+
           await AsyncStorage.setItem("auth-username", finalUsername);
           await AsyncStorage.setItem("auth-email", userCredential.user.email || email);
           onAuthSuccess(finalUsername);
@@ -239,6 +281,20 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               setShowNamePrompt(true);
             } else {
               const name = result.user.displayName;
+              
+              // Save user to Firestore Database
+              try {
+                await setDoc(doc(db, "users", result.user.uid), {
+                  uid: result.user.uid,
+                  email: result.user.email || "",
+                  displayName: name,
+                  provider: "google",
+                  lastLoginAt: new Date().toISOString()
+                }, { merge: true });
+              } catch (dbErr) {
+                console.error("Firestore Google popup login error:", dbErr);
+              }
+
               await AsyncStorage.setItem("auth-username", name);
               await AsyncStorage.setItem("auth-email", result.user.email || "");
               onAuthSuccess(name);
@@ -280,6 +336,20 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         setShowGoogleChooser(false);
         setShowNamePrompt(true);
       } else {
+        // Save mock chooser login to Firestore Database so they appear in Firebase
+        try {
+          const mockUid = "mock_" + name.toLowerCase().replace(/\s+/g, "_");
+          await setDoc(doc(db, "users", mockUid), {
+            uid: mockUid,
+            email: userEmail,
+            displayName: name,
+            provider: "google_mock",
+            lastLoginAt: new Date().toISOString()
+          }, { merge: true });
+        } catch (dbErr) {
+          console.error("Firestore Mock Google login save error:", dbErr);
+        }
+
         await AsyncStorage.setItem("auth-username", name);
         await AsyncStorage.setItem("auth-email", userEmail);
         setShowGoogleChooser(false);
@@ -306,6 +376,33 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         await updateProfile(user, {
           displayName: trimmedName,
         });
+
+        // Save user to Firestore Database
+        try {
+          await setDoc(doc(db, "users", user.uid), {
+            uid: user.uid,
+            email: user.email || "",
+            displayName: trimmedName,
+            provider: "google",
+            createdAt: new Date().toISOString()
+          });
+        } catch (dbErr) {
+          console.error("Firestore Google signup name save error:", dbErr);
+        }
+      } else {
+        // Mock fallback/Chooser fallback save
+        try {
+          const mockUid = "mock_" + Date.now();
+          await setDoc(doc(db, "users", mockUid), {
+            uid: mockUid,
+            email: user?.email || "user@gmail.com",
+            displayName: trimmedName,
+            provider: "google_mock",
+            createdAt: new Date().toISOString()
+          });
+        } catch (dbErr) {
+          console.error("Firestore Mock Google signup save error:", dbErr);
+        }
       }
       await AsyncStorage.setItem("auth-username", trimmedName);
       if (user?.email) {

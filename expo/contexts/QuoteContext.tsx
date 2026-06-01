@@ -2,7 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { updateProfile } from "firebase/auth";
-import { auth } from "../utils/firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { auth, db } from "../utils/firebase";
 
 import type { AuthorInfo, Quote, QuoteCategory } from "@/constants/quotes";
 import { ALL_CATEGORIES, authorRegistry, quotes } from "@/constants/quotes";
@@ -258,6 +259,16 @@ export const [QuoteProvider, useQuotes] = createContextHook(() => {
         await updateProfile(auth.currentUser, {
           displayName: newName,
         });
+
+        // Also update Firestore Database
+        try {
+          await updateDoc(doc(db, "users", auth.currentUser.uid), {
+            displayName: newName,
+            updatedAt: new Date().toISOString()
+          });
+        } catch (dbErr) {
+          console.error("Firestore user profile update error:", dbErr);
+        }
       } catch (err) {
         console.error("Error updating profile in Firebase:", err);
       }
